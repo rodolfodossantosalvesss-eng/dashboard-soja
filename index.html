@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Painel Técnico – Soja</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+<style>
+body { font-family: Arial; background:#eef1f4; margin:0 }
+header { background:#111827; color:#fff; padding:12px 20px }
+.container { padding:20px }
+.kpis { display:grid; grid-template-columns:repeat(5,1fr); gap:10px }
+.kpi { background:#fff; padding:12px; border-radius:6px }
+.kpi h4 { font-size:13px; margin:0 }
+.kpi p { font-size:22px; margin:4px 0 0; font-weight:bold }
+.alerta-vermelho { background:#fee2e2 !important }
+.alerta-amarelo { background:#fef9c3 !important }
+.alerta-verde { background:#dcfce7 !important }
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>📊 Painel Técnico – Operação Soja</h2>
+<input type="file" id="csvFile" accept=".csv">
+</header>
+
+<div class="container">
+
+<div class="kpis">
+  <div class="kpi"><h4>Área Total (ha)</h4><p id="areaTotal">--</p></div>
+  <div class="kpi"><h4>Pico Diário</h4><p id="pico">--</p></div>
+  <div class="kpi"><h4>Talhões</h4><p id="talhoes">--</p></div>
+  <div class="kpi"><h4>Início Colheita</h4><p id="inicio">--</p></div>
+  <div class="kpi"><h4>Fim Colheita</h4><p id="fim">--</p></div>
+</div>
+
+<br>
+<canvas id="grafico"></canvas>
+<br>
+
+<table id="tabela" class="display">
+<thead>
+<tr>
+<th>Fazenda</th>
+<th>Talhão</th>
+<th>Variedade</th>
+<th>Área</th>
+<th>Colheita</th>
+<th>Dias</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+</div>
+
+<script>
+let chart;
+
+document.getElementById("csvFile").addEventListener("change", function(e){
+ Papa.parse(e.target.files[0], {
+  header:true,
+  complete: function(res){
+    carregar(res.data);
+  }
+ });
+});
+
+function carregar(dados){
+ let hoje = new Date();
+ let total = 0;
+ let datas = {};
+ let tbody = "";
+
+ dados.forEach(d=>{
+  let area = parseFloat(d.Area);
+  let data = new Date(d["Previsão de Colheita"]);
+  let dias = Math.ceil((data-hoje)/86400000);
+  let status="OK", cls="alerta-verde";
+  if(dias<=3){status="CRÍTICO";cls="alerta-vermelho"}
+  else if(dias<=6){status="ATENÇÃO";cls="alerta-amarelo"}
+
+  total+=area;
+  let key=data.toLocaleDateString();
+  datas[key]=(datas[key]||0)+area;
+
+  tbody+=`<tr class="${cls}">
+   <td>${d.Fazenda}</td>
+   <td>${d.Talhão}</td>
+   <td>${d.Variedade}</td>
+   <td>${area}</td>
+   <td>${key}</td>
+   <td>${dias}</td>
+   <td>${status}</td>
+  </tr>`;
+ });
+
+ document.querySelector("#tabela tbody").innerHTML=tbody;
+ $('#tabela').DataTable();
+
+ document.getElementById("areaTotal").innerText=total.toFixed(1);
+
+ let labels=Object.keys(datas);
+ let values=Object.values(datas);
+
+ if(chart) chart.destroy();
+ chart=new Chart(document.getElementById("grafico"),{
+  type:'bar',
+  data:{labels:labels,datasets:[{label:'Área (ha)',data:values}]}
+ });
+}
+</script>
+
+</body>
+</html>
